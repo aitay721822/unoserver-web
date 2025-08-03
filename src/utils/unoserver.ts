@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import timersP from 'node:timers/promises'
 
 import { execa, type ResultPromise } from 'execa'
@@ -70,8 +71,11 @@ class UnoserverInstance {
 		return pRetry(
 			async () => {
 				if (signal?.aborted ?? false) {
-					console.error('Conversion aborted, canceling...')
-					return
+					throw new Error('Conversion aborted')
+				}
+
+				if (!existsSync(from)) {
+					throw new Error('Source file not found')
 				}
 
 				if (!this.unoserver) {
@@ -259,8 +263,7 @@ export class Unoserver {
 			async () => {
 				// Check if aborted before starting conversion
 				if (options?.signal?.aborted === true) {
-					console.error('Conversion aborted, canceling...')
-					return
+					throw new Error('Conversion aborted')
 				}
 
 				const instance = this.getAvailableInstance()
