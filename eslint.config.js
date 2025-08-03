@@ -21,7 +21,7 @@ const eslintConfig = tseslint.config(
 	eslintPluginImport.flatConfigs.recommended,
 	eslintPluginImport.flatConfigs.errors,
 	eslintPluginImport.flatConfigs.warnings,
-	eslintPluginUnicorn.configs['recommended'],
+	eslintPluginUnicorn.configs.recommended,
 	{
 		rules: {
 			'dot-notation': 'warn',
@@ -42,7 +42,7 @@ const eslintConfig = tseslint.config(
 			'max-statements-per-line': ['warn', { max: 1 }],
 			'no-array-constructor': 'error',
 			'no-async-promise-executor': 'error',
-			'no-console': ['warn', { allow: ['warn', 'error'] }],
+			'no-console': ['warn', { allow: ['info', 'warn', 'error'] }],
 			'no-constant-binary-expression': 'error',
 			'no-constant-condition': 'off',
 			'no-div-regex': 'error',
