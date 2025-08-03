@@ -138,14 +138,14 @@ export class Unoserver {
 			console.error('Failed to warmup unoserver instances', e)
 		})
 
-		// 設定每1分鐘重啟空閒實例
+		// 設定每30分鐘重啟空閒實例
 		this.restartInterval = setInterval(
 			() => {
 				this.restartInstances().catch(e => {
 					console.error('restart unoserver instances failed:', e)
 				})
 			},
-			1 * 60 * 1000,
+			30 * 60 * 1000,
 		)
 	}
 
