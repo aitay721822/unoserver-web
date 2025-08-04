@@ -1,4 +1,4 @@
-FROM node:22.11.0-bullseye-slim as node
+FROM node:24.1.0-bullseye-slim as node
 
 FROM ubuntu:24.04
 
