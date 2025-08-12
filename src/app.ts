@@ -5,7 +5,7 @@ import multipart from '@fastify/multipart'
 import swagger from '@fastify/swagger'
 import swaggerUi from '@fastify/swagger-ui'
 import Fastify, { type FastifyInstance } from 'fastify'
-import { type P } from 'pino'
+import { type LevelWithSilent } from 'pino'
 
 import { transform } from './plugins/supportFilesInSchema.js'
 import { routes } from './routes.js'
@@ -18,7 +18,7 @@ export function createApp({
 	requestIdLogLabel,
 }: {
 	basePath?: string
-	logLevel?: P.LevelWithSilent
+	logLevel?: LevelWithSilent
 	requestIdHeader?: string
 	requestIdLogLabel?: string
 } = {}): FastifyInstance<Server, IncomingMessage, ServerResponse> {
