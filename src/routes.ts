@@ -38,7 +38,11 @@ export const routes: FastifyPluginCallback = (app, options, next) => {
 			},
 		},
 		async (req, res) => {
-			const data = await req.file()
+			const data = await req.file({
+				limits: {
+					fileSize: 100 * 1024 * 1024, // 100MB
+				},
+			})
 			assert(data !== undefined, new httpErrors.BadRequest('Expected file'))
 
 			// Create temporary directory
