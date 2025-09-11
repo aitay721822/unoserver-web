@@ -52,7 +52,7 @@ export const routes: FastifyPluginCallback = (app, options, next) => {
 			// Save uploaded file
 			const filename = data?.filename ?? 'uploaded-file'
 			const srcPath = path.join(destination, filename)
-			await writeFile(srcPath, await data.toBuffer())
+			await writeFile(srcPath, await data.toBuffer(), { encoding: 'binary' })
 
 			// Create abort controller to handle client disconnection
 			const abortController = new AbortController()

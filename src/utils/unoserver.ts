@@ -26,7 +26,13 @@ class UnoserverInstance {
 	}
 
 	private async runServer() {
-		const unoserver = execa('unoserver', ['--port', String(this.port)])
+		const unoserver = execa('unoserver', ['--port', String(this.port)], {
+			env: {
+				...process.env,
+				LANG: 'zh_TW.UTF-8',
+				LC_ALL: 'zh_TW.UTF-8',
+			},
+		})
 		await Promise.race([unoserver, timersP.setTimeout(5000)])
 		void unoserver.on('exit', () => {
 			this.unoserver = null
@@ -104,6 +110,12 @@ class UnoserverInstance {
 				await execa('unoconvert', commandArguments, {
 					timeout: this.timeout,
 					cancelSignal: signal,
+					encoding: 'utf8',
+					env: {
+						...process.env,
+						LANG: 'zh_TW.UTF-8',
+						LC_ALL: 'zh_TW.UTF-8',
+					},
 				})
 			},
 			{

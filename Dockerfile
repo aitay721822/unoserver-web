@@ -8,10 +8,15 @@ WORKDIR /app
 
 ENV DEBIAN_FRONTEND noninteractive
 
-# Common libraries
+# Common libraries and locale setup
 RUN apt-get update && \
-    apt-get install -y curl && \
+    apt-get install -y curl locales && \
+    locale-gen zh_TW.UTF-8 && \
+    update-locale LANG=zh_TW.UTF-8 && \
     rm -rf /var/lib/apt/lists/*
+
+ENV LANG=zh_TW.UTF-8
+ENV LC_ALL=zh_TW.UTF-8
 
 # Libreoffice
 RUN apt-get update && \
