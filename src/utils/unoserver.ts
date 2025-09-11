@@ -34,9 +34,22 @@ class UnoserverInstance {
 		this.unoserver = unoserver
 	}
 
-	stopServer(): void {
+	async stopServer(): Promise<void> {
 		if (this.unoserver) {
-			this.unoserver.kill()
+			this.unoserver.kill('SIGTERM')
+			try {
+				// 等待進程結束，最多等5秒
+				await Promise.race([
+					this.unoserver,
+					new Promise((_, reject) =>
+						setTimeout(() => reject(new Error('Timeout')), 5000),
+					),
+				])
+			} catch {
+				// 如果 SIGTERM 沒用，強制殺掉
+				this.unoserver.kill('SIGKILL')
+			}
+			this.unoserver = null
 		}
 	}
 
@@ -48,7 +61,7 @@ class UnoserverInstance {
 
 	async restart(): Promise<void> {
 		this.isRestarting = true
-		this.stopServer()
+		await this.stopServer()
 		await this.runServer()
 		this.isRestarting = false
 		this.skipRestartCount = 0
@@ -198,15 +211,17 @@ export class Unoserver {
 		return leastBusyInstance
 	}
 
-	stopServer(): void {
+	async stopServer(): Promise<void> {
 		// 清除定時重啟任務
 		if (this.restartInterval) {
 			clearInterval(this.restartInterval)
+			this.restartInterval = null
 		}
 
-		for (const instance of this.instances) {
-			instance.stopServer()
-		}
+		// 並行停止所有實例
+		await Promise.allSettled(
+			this.instances.map(async instance => await instance.stopServer()),
+		)
 	}
 
 	async restartInstances(): Promise<void> {

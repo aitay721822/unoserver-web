@@ -73,8 +73,8 @@ export function createApp({
 		done()
 	})
 
-	fastify.addHook('onClose', () => {
-		unoserver.stopServer()
+	fastify.addHook('onClose', async () => {
+		await unoserver.stopServer()
 	})
 
 	return fastify

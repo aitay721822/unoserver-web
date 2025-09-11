@@ -13,3 +13,18 @@ const ALL_AVAILABLE_IPV4_INTERFACES = '0.0.0.0'
 await fastify.listen({ port: PORT, host: ALL_AVAILABLE_IPV4_INTERFACES })
 
 fastify.log.info(`Mode: ${process.env.NODE_ENV ?? 'unset'}`)
+
+// 優雅關閉處理
+const shutdown = async (signal: string) => {
+	fastify.log.info(`Received ${signal}, shutting down gracefully...`)
+	try {
+		await fastify.close()
+		process.exit(0)
+	} catch (error) {
+		fastify.log.error(`Error during shutdown: ${error}`)
+		process.exit(1)
+	}
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'))
+process.on('SIGTERM', () => shutdown('SIGTERM'))
