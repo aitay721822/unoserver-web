@@ -26,5 +26,15 @@ const shutdown = async (signal: string) => {
 	}
 }
 
-process.on('SIGINT', () => shutdown('SIGINT'))
-process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => {
+	shutdown('SIGINT').catch(error => {
+		console.error('Failed to shutdown gracefully:', error)
+		process.exit(1)
+	})
+})
+process.on('SIGTERM', () => {
+	shutdown('SIGTERM').catch(error => {
+		console.error('Failed to shutdown gracefully:', error)
+		process.exit(1)
+	})
+})
