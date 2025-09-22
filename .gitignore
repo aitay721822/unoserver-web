@@ -4,3 +4,14 @@ node_modules
 .env
 coverage
 .pnpm-store
+
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.log
+*.tmp
+*.cache
+*.DS_Store
+*.vscode/
