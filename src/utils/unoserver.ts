@@ -3,7 +3,7 @@ import timersP from 'node:timers/promises'
 
 import { execa, type ResultPromise } from 'execa'
 import PQueue from 'p-queue'
-import pRetry from 'p-retry'
+import pRetry, { AbortError } from 'p-retry'
 
 import { reusePromiseForParallelCalls } from './reusePromiseForParallelCalls.js'
 
@@ -90,11 +90,12 @@ class UnoserverInstance {
 		return pRetry(
 			async () => {
 				if (signal?.aborted ?? false) {
-					throw new Error('Conversion aborted')
+					throw new AbortError('Conversion aborted')
 				}
 
 				if (!existsSync(from)) {
-					throw new Error('Source file not found')
+					// 這種情況重試沒有意義，直接終止重試
+					throw new AbortError('Source file not found')
 				}
 
 				if (!this.unoserver) {
@@ -119,6 +120,24 @@ class UnoserverInstance {
 				})
 			},
 			{
+				onFailedAttempt: async ({ retriesLeft }) => {
+					// 失敗後立刻重開 unoserver，再讓 pRetry 進下一次重試
+					if (retriesLeft <= 0) {
+						return
+					}
+					if (signal?.aborted ?? false) {
+						throw new AbortError('Conversion aborted')
+					}
+					try {
+						await this.restart()
+					} catch (error) {
+						// 重啟失敗不應阻止後續重試：下一次 attempt 仍會嘗試 runServer()
+						console.warn(
+							`Failed to restart unoserver instance on port ${this.port}`,
+							error,
+						)
+					}
+				},
 				retries:
 					process.env.CONVERSION_RETRIES !== undefined
 						? Number(process.env.CONVERSION_RETRIES)
