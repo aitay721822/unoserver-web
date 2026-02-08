@@ -1,37 +1,41 @@
 using System.CommandLine;
-using System.CommandLine.Binding;
 using System.Text.Json;
 using Unoserver.SDK;
 using Unoserver.SDK.Models;
 
-return await BuildCommandLine()
-    .InvokeAsync(args);
+return await BuildCommandLine().Parse(args).InvokeAsync();
+
+static UnoserverClient UnoserverClientFactory(Uri serverUri)
+{
+    var httpClient = new HttpClient { BaseAddress = serverUri };
+    return new UnoserverClient(httpClient);
+}
 
 static RootCommand BuildCommandLine()
 {
     // Define a binder for the UnoserverClient to handle the --server global option
-    var serverOption = new Option<Uri>(
-        name: "--server",
-        description: "The base URI of the Unoserver API.",
-        getDefaultValue: () => new Uri("http://localhost:3000"));
-
-    var clientBinder = new UnoserverClientBinder(serverOption);
+    var serverOption = new Option<Uri>("--server")
+    {
+        Description = "The base URI of the Unoserver API.",
+        DefaultValueFactory = _ => new Uri("http://localhost:3000")
+    };
 
     // Root Command
     var rootCommand = new RootCommand("A CLI for interacting with the Unoserver API.")
     {
-        Name = "unoserver-cli"
+        serverOption
     };
-    rootCommand.AddGlobalOption(serverOption);
 
     // Status Command
     var serializerOptions = new JsonSerializerOptions { WriteIndented = true, PropertyNameCaseInsensitive = true };
 
     var statusCommand = new Command("status", "Get the status of the conversion queue.");
-    statusCommand.SetHandler(async client =>
+    statusCommand.SetAction(async (parseResult) =>
     {
         try
         {
+            var serverUri = parseResult.GetRequiredValue(serverOption);
+            var client = UnoserverClientFactory(serverUri);
             var status = await client.GetQueueStatusAsync();
             Console.WriteLine(JsonSerializer.Serialize(status, serializerOptions));
         }
@@ -39,27 +43,27 @@ static RootCommand BuildCommandLine()
         {
             Console.Error.WriteLine($"Error: {ex.Message}");
         }
-    }, clientBinder);
-    rootCommand.AddCommand(statusCommand);
+    });
+    rootCommand.Add(statusCommand);
 
     // Convert Command
-    var fileOption = new Option<FileInfo>(
-        aliases: ["--file", "-f"],
-        description: "The input file to convert.")
-    { IsRequired = true }.ExistingOnly();
+    var fileOption = new Option<FileInfo>("--file", "-f") {
+        Description = "The input file to convert.",
+        Required = true
+    }.AcceptExistingOnly();
 
-    var formatOption = new Option<ConversionFormat>(
-        aliases: ["--format", "-t"],
-        description: "The target format (e.g., pdf, docx).")
-    { IsRequired = true };
+    var formatOption = new Option<ConversionFormat>("--format", "-t") {
+        Description = "The target format (e.g., pdf, docx).",
+        Required = true
+    };
 
-    var outputOption = new Option<FileInfo>(
-        aliases: ["--output", "-o"],
-        description: "The path to save the converted file. If not provided, the output will be saved in the same directory as the input file.");
-    
-    var filterOption = new Option<string>(
-        name: "--filter",
-        description: "Optional: A custom conversion filter (e.g., 'writer_pdf_Export').");
+    var outputOption = new Option<FileInfo>("--output", "-o") {
+        Description = "The path to save the converted file. If not provided, the output will be saved in the same directory as the input file."
+    };
+
+    var filterOption = new Option<string>("--filter") {
+        Description = "Optional: A custom conversion filter (e.g., 'writer_pdf_Export')."
+    };
 
     var convertCommand = new Command("convert", "Convert a file to a different format.")
     {
@@ -69,10 +73,17 @@ static RootCommand BuildCommandLine()
         filterOption
     };
 
-    convertCommand.SetHandler(async (client, file, format, output, filter) =>
+    convertCommand.SetAction(async (parseResult) =>
     {
         try
         {
+            var file = parseResult.GetRequiredValue(fileOption);
+            var format = parseResult.GetRequiredValue(formatOption);
+            var output = parseResult.GetValue(outputOption);
+            var filter = parseResult.GetValue(filterOption);
+            var serverUri = parseResult.GetRequiredValue(serverOption);
+            var client = UnoserverClientFactory(serverUri);
+
             Console.WriteLine($"Converting '{file.FullName}' to '{format}'...");
 
             await using var fileStream = file.OpenRead();
@@ -94,25 +105,8 @@ static RootCommand BuildCommandLine()
         {
             Console.Error.WriteLine($"Error: {ex.Message}");
         }
-    }, clientBinder, fileOption, formatOption, outputOption, filterOption);
-    rootCommand.AddCommand(convertCommand);
+    });
+    rootCommand.Add(convertCommand);
 
     return rootCommand;
-}
-
-public class UnoserverClientBinder : BinderBase<UnoserverClient>
-{
-    private readonly Option<Uri> _serverOption;
-
-    public UnoserverClientBinder(Option<Uri> serverOption)
-    {
-        _serverOption = serverOption;
-    }
-
-    protected override UnoserverClient GetBoundValue(BindingContext bindingContext)
-    {
-        var serverUri = bindingContext.ParseResult.GetValueForOption(_serverOption);
-        var httpClient = new HttpClient { BaseAddress = serverUri };
-        return new UnoserverClient(httpClient);
-    }
 }
