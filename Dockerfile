@@ -1,4 +1,4 @@
-FROM node:24.1.0-bullseye-slim as node
+FROM node:24.1.0-bullseye-slim AS node
 
 FROM ubuntu:24.04
 
@@ -6,7 +6,7 @@ COPY --from=node /usr/local/ /usr/local/
 
 WORKDIR /app
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Common libraries and locale setup
 RUN apt-get update && \

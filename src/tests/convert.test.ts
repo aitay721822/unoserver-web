@@ -1,7 +1,5 @@
 import { openAsBlob } from 'node:fs'
 
-import { FormData } from 'undici'
-
 import { startTestServer } from './startTestServer.js'
 
 const testServer = await startTestServer()

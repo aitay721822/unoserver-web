@@ -7,6 +7,24 @@ import pRetry, { AbortError } from 'p-retry'
 
 import { reusePromiseForParallelCalls } from './reusePromiseForParallelCalls.js'
 
+function parsePositiveInt(name: string, defaultValue: number): number {
+	const rawValue = process.env[name]
+	if (rawValue === undefined) {
+		return defaultValue
+	}
+
+	const parsedValue = Number(rawValue)
+	if (Number.isInteger(parsedValue) && parsedValue > 0) {
+		return parsedValue
+	}
+
+	console.warn(
+		`Invalid ${name} value "${rawValue}", fallback to default: ${defaultValue}`,
+	)
+
+	return defaultValue
+}
+
 class UnoserverInstance {
 	timeout: number
 	unoserver: ResultPromise | null
@@ -67,10 +85,13 @@ class UnoserverInstance {
 
 	async restart(): Promise<void> {
 		this.isRestarting = true
-		await this.stopServer()
-		await this.runServer()
-		this.isRestarting = false
-		this.skipRestartCount = 0
+		try {
+			await this.stopServer()
+			await this.runServer()
+			this.skipRestartCount = 0
+		} finally {
+			this.isRestarting = false
+		}
 	}
 
 	canBeRestarted(): boolean {
@@ -140,7 +161,7 @@ class UnoserverInstance {
 				},
 				retries:
 					process.env.CONVERSION_RETRIES !== undefined
-						? Number(process.env.CONVERSION_RETRIES)
+						? parsePositiveInt('CONVERSION_RETRIES', 3)
 						: 3,
 				signal,
 			},
@@ -155,6 +176,7 @@ export class Unoserver {
 	startingPort: number
 	restartInterval: NodeJS.Timeout | null
 	maxSkipRestarts: number
+	restartInProgress: boolean
 
 	constructor({
 		maxWorkers,
@@ -171,6 +193,7 @@ export class Unoserver {
 		this.timeout = timeout
 		this.startingPort = startingPort
 		this.maxSkipRestarts = maxSkipRestarts
+		this.restartInProgress = false
 		this.instances = []
 
 		for (let i = 0; i < maxWorkers; i++) {
@@ -256,41 +279,53 @@ export class Unoserver {
 	}
 
 	async restartInstances(): Promise<void> {
+		if (this.restartInProgress) {
+			console.info('Skipping restart cycle because previous cycle is still running')
+			return
+		}
+
+		this.restartInProgress = true
 		console.info('Starting restart of unoserver instances...')
 
-		for (const instance of this.instances) {
-			if (instance.canBeRestarted()) {
-				console.info(`Restarting instance on port ${instance.port}`)
-				try {
-					await instance.restart()
-					console.info(`Instance on port ${instance.port} restarted successfully`)
-				} catch (error) {
-					console.error(`Failed to restart instance on port ${instance.port}:`, error)
-				}
-			} else if (instance.inUse) {
-				instance.skipRestartCount++
-				console.info(
-					`Skipping restart for busy instance on port ${instance.port} (skip count: ${instance.skipRestartCount}/${this.maxSkipRestarts})`,
-				)
-
-				if (instance.skipRestartCount >= this.maxSkipRestarts) {
-					console.info(
-						`Force restarting instance on port ${instance.port} after ${this.maxSkipRestarts} skips`,
-					)
+		try {
+			for (const instance of this.instances) {
+				if (instance.canBeRestarted()) {
+					console.info(`Restarting instance on port ${instance.port}`)
 					try {
 						await instance.restart()
-						console.info(`Instance on port ${instance.port} force restarted successfully`)
+						console.info(`Instance on port ${instance.port} restarted successfully`)
 					} catch (error) {
-						console.error(
-							`Failed to force restart instance on port ${instance.port}:`,
-							error,
+						console.error(`Failed to restart instance on port ${instance.port}:`, error)
+					}
+				} else if (instance.inUse) {
+					instance.skipRestartCount++
+					console.info(
+						`Skipping restart for busy instance on port ${instance.port} (skip count: ${instance.skipRestartCount}/${this.maxSkipRestarts})`,
+					)
+
+					if (instance.skipRestartCount >= this.maxSkipRestarts) {
+						console.info(
+							`Force restarting instance on port ${instance.port} after ${this.maxSkipRestarts} skips`,
 						)
+						try {
+							await instance.restart()
+							console.info(
+								`Instance on port ${instance.port} force restarted successfully`,
+							)
+						} catch (error) {
+							console.error(
+								`Failed to force restart instance on port ${instance.port}:`,
+								error,
+							)
+						}
 					}
 				}
 			}
-		}
 
-		console.info('restart cycle completed')
+			console.info('restart cycle completed')
+		} finally {
+			this.restartInProgress = false
+		}
 	}
 
 	/**
@@ -327,9 +362,6 @@ export class Unoserver {
 }
 
 export const unoserver = new Unoserver({
-	maxWorkers: process.env.MAX_WORKERS !== undefined ? Number(process.env.MAX_WORKERS) : 8,
-	maxSkipRestarts:
-		process.env.MAX_SKIP_RESTARTS !== undefined
-			? Number(process.env.MAX_SKIP_RESTARTS)
-			: 3,
+	maxWorkers: parsePositiveInt('MAX_WORKERS', 8),
+	maxSkipRestarts: parsePositiveInt('MAX_SKIP_RESTARTS', 3),
 })

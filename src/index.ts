@@ -21,7 +21,11 @@ const shutdown = async (signal: string) => {
 		await fastify.close()
 		process.exit(0)
 	} catch (error) {
-		fastify.log.error(`Error during shutdown: ${error}`)
+		if (error instanceof Error) {
+			fastify.log.error(`Error during shutdown: ${error.message}`)
+		} else {
+			fastify.log.error(`Error during shutdown: ${String(error)}`)
+		}
 		process.exit(1)
 	}
 }

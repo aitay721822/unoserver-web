@@ -15,7 +15,7 @@
 		"sourceMap": true,
 		"lib": ["es2022"],
 		"outDir": "build",
-		"types": ["vitest/globals"]
+		"types": ["vitest/globals", "node"]
 	},
 	"include": ["src"]
 }
